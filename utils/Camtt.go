@@ -29,20 +29,39 @@ type PotentialCalculator struct {
 
 // 创建电位转换函数
 // 创建电位转换函数
-func (pc *PotentialCalculator) calculatePotential(time float64) float64 {
-	var potential float64
+//func (pc *PotentialCalculator) calculatePotential(time float64) float64 {
+//	var potential float64
+//
+//	// 根据扫描方向计算电位
+//	if pc.ScanDirection == "+" {
+//		potential = pc.InitialPotential + (pc.ScanSpeed * time)
+//		if potential > pc.HighPotential {
+//			return pc.HighPotential // 超过高电位限制
+//		}
+//	} else if pc.ScanDirection == "-" {
+//		potential = pc.InitialPotential - (pc.ScanSpeed * time)
+//		if potential < pc.LowPotential {
+//			return pc.LowPotential // 低于低电位限制
+//		}
+//	}
+//
+//	return potential
+//}
 
+func (pc *PotentialCalculator) calculatePotential(time float64) float64 {
 	// 根据扫描方向计算电位
+	potential := pc.InitialPotential
 	if pc.ScanDirection == "+" {
-		potential = pc.InitialPotential + (pc.ScanSpeed * time)
-		if potential > pc.HighPotential {
-			return pc.HighPotential // 超过高电位限制
-		}
+		potential += pc.ScanSpeed * time
 	} else if pc.ScanDirection == "-" {
-		potential = pc.InitialPotential - (pc.ScanSpeed * time)
-		if potential < pc.LowPotential {
-			return pc.LowPotential // 低于低电位限制
-		}
+		potential -= pc.ScanSpeed * time
+	}
+
+	// 限制电位在 [lowPotential, highPotential] 范围内
+	if potential > pc.HighPotential {
+		return pc.HighPotential
+	} else if potential < pc.LowPotential {
+		return pc.LowPotential
 	}
 
 	return potential
