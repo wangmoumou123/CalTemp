@@ -13,7 +13,6 @@ import (
 	"bufio"
 	"fmt"
 	"github.com/xuri/excelize/v2"
-	"log"
 	"math"
 	"os"
 	"strconv"
@@ -29,13 +28,20 @@ type PotentialCalculator struct {
 	ScanSpeed        float64 // 扫描速度 (V/s)
 }
 
-func (pc *PotentialCalculator) calculatePotential(time float64) float64 {
+func (pc *PotentialCalculator) calculatePotential1(time float64) float64 {
 	var val float64
 	t := time * pc.ScanSpeed
 	w := pc.HighPotential - pc.LowPotential
 	//x - math.Floor(x/y)*y
+	var status bool
+	isArrest := t - math.Floor(t/(w*2))*2*w
+	status = false
+	if isArrest < w {
+		status = true
+	}
+	fmt.Println(status)
 	total := t - math.Floor(t/w)*w
-	log.Println(t, "====", w, "====", total)
+	//log.Println(t, "====", w, "====", total)
 	if pc.ScanDirection == "+" {
 		p := pc.HighPotential - pc.InitialPotential
 		if total >= p {
@@ -59,6 +65,43 @@ func (pc *PotentialCalculator) calculatePotential(time float64) float64 {
 
 	}
 	return val
+}
+
+func (pc *PotentialCalculator) calculatePotential(time float64) float64 {
+	// 计算一个完整周期的时间
+	period := 2 * (pc.HighPotential - pc.LowPotential) / pc.ScanSpeed
+
+	// 计算初始电位偏移，确定在周期内从哪里开始
+	initialOffset := (pc.InitialPotential - pc.LowPotential) / pc.ScanSpeed
+
+	// 保证初始电位在低电位和高电位之间
+	if initialOffset < 0 || initialOffset > period {
+		fmt.Println("初始电位必须在低电位和高电位之间")
+		return pc.InitialPotential
+	}
+	// 总时间加上初始偏移
+	modTime := (time + initialOffset) - (float64(int((time+initialOffset)/period)) * period)
+
+	var potential float64
+	fmt.Println(modTime, period/2)
+	// 如果在上升阶段（周期的前半部分）
+	if modTime <= period/2 {
+		pc.ScanDirection = "+"
+		potential = -1 * (pc.LowPotential + modTime*pc.ScanSpeed)
+	} else {
+		// 如果在下降阶段（周期的后半部分）
+		pc.ScanDirection = "-"
+		potential = -1 * (pc.HighPotential - (modTime-period/2)*pc.ScanSpeed)
+	}
+
+	// 限制电位在高低电位之间
+	if potential > pc.HighPotential {
+		return pc.HighPotential
+	} else if potential < pc.LowPotential {
+		return pc.LowPotential
+	}
+
+	return potential
 }
 
 // 用户输入解析函数
