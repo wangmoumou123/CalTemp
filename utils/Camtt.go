@@ -90,10 +90,15 @@ func getUserInput(prompt string) float64 {
 // Camm 主函数
 func Camm(fileName string) {
 	// 获取用户输入
+	fmt.Println()
 	initialPotential := getUserInput("请输入初始电位 (V): ")
+	fmt.Println()
 	highPotential := getUserInput("请输入高电位 (V): ")
+	fmt.Println()
 	lowPotential := getUserInput("请输入低电位 (V): ")
+	fmt.Println()
 	scanSpeed := getUserInput("请输入扫描速度 (V/s): ")
+	fmt.Println()
 
 	// 获取并验证扫描方向
 	fmt.Print("请输入扫描方向 (+/-): ")
@@ -118,52 +123,57 @@ func Camm(fileName string) {
 		ScanDirection:    scanDirection,
 		ScanSpeed:        scanSpeed,
 	}
-
-	// 获取时间序列数据
-	fmt.Print("请输入时间数据（以空格分隔的秒数列表，例如: 0 1 2 3）: ")
-	var timeInput string
-	reader := bufio.NewReader(os.Stdin)
-	timeInput, err = reader.ReadString('\n')
-	if err != nil {
-		fmt.Println("获取时间输入时发生错误: ", err)
-		return
-	}
-
-	// 解析时间数据
-	timeStrings := strings.Fields(timeInput)
-	if len(timeStrings) == 0 {
-		fmt.Println("未提供有效的时间数据")
-		return
-	}
-	var data [][]interface{}
-	fmt.Println("======================================================")
-	for _, timeStr := range timeStrings {
-		timeValue, err := strconv.ParseFloat(timeStr, 64)
+	for {
+		fmt.Println()
+		// 获取时间序列数据
+		fmt.Print("请输入时间数据（以空格分隔的秒数列表，例如: 0 1 2 3, 按q返回上一级菜单）: ")
+		var timeInput string
+		reader := bufio.NewReader(os.Stdin)
+		timeInput, err = reader.ReadString('\n')
 		if err != nil {
-			fmt.Printf("时间数据格式错误: '%s' 无法转换为数字: %v", timeStr, err)
+			fmt.Println("获取时间输入时发生错误: ", err)
 			return
 		}
-		// 计算电位
-		potential := calculator.calculatePotential(timeValue)
-		data = append(data, []interface{}{
-			calculator.InitialPotential,
-			calculator.HighPotential,
-			calculator.LowPotential,
-			calculator.ScanSpeed,
-			calculator.ScanDirection,
-			timeValue,
-			potential,
-		})
-		fmt.Printf("时间: %.2f 秒 ===> 初始电位: %.2fV === 计算电位: %.2f V\n", timeValue, calculator.InitialPotential, potential)
-	}
-	err = writeToExcel(fileName, data)
-	if err != nil {
-		fmt.Println(err)
-		fmt.Println("======error_data====")
-		fmt.Println(data)
-	}
-	fmt.Println("======================================================")
+		if strings.TrimSpace(timeInput) == "q" {
+			break
+		}
 
+		// 解析时间数据
+		timeStrings := strings.Fields(timeInput)
+		if len(timeStrings) == 0 {
+			fmt.Println("未提供有效的时间数据")
+			return
+		}
+		var data [][]interface{}
+		fmt.Println("======================================================")
+		for _, timeStr := range timeStrings {
+			timeValue, err := strconv.ParseFloat(timeStr, 64)
+			if err != nil {
+				fmt.Printf("时间数据格式错误: '%s' 无法转换为数字: %v", timeStr, err)
+				return
+			}
+			// 计算电位
+			potential := calculator.calculatePotential(timeValue)
+			data = append(data, []interface{}{
+				calculator.InitialPotential,
+				calculator.HighPotential,
+				calculator.LowPotential,
+				calculator.ScanSpeed,
+				calculator.ScanDirection,
+				timeValue,
+				potential,
+			})
+			fmt.Printf("时间: %.2f 秒 ===> 初始电位: %.2fV === 计算电位: %.2f V\n", timeValue, calculator.InitialPotential, potential)
+		}
+		err = writeToExcel(fileName, data)
+		if err != nil {
+			fmt.Println(err)
+			fmt.Println("======error_data====")
+			fmt.Println(data)
+		}
+		fmt.Println("======================================================")
+
+	}
 }
 
 // 将数据写入 Excel
@@ -189,7 +199,7 @@ func writeToExcel(filename string, data [][]interface{}) error {
 		f.SetActiveSheet(index)
 
 		// 写入表头
-		headers := []interface{}{"初始电位", "高电位", "低电位", "扫描速度", "扫描方向", "时间 (s)", "计算电位 (V)"}
+		headers := []interface{}{"初始电位(V)", "高电位(V)", "低电位(V)", "扫描速度(V/s)", "扫描方向(+/-)", "时间 (s)", "计算电位 (V)"}
 		if err := f.SetSheetRow(sheetName, "A1", &headers); err != nil {
 			return err
 		}
