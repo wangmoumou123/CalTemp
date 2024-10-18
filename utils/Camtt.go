@@ -13,6 +13,8 @@ import (
 	"bufio"
 	"fmt"
 	"github.com/xuri/excelize/v2"
+	"log"
+	"math"
 	"os"
 	"strconv"
 	"strings"
@@ -27,44 +29,36 @@ type PotentialCalculator struct {
 	ScanSpeed        float64 // 扫描速度 (V/s)
 }
 
-// 创建电位转换函数
-// 创建电位转换函数
-//func (pc *PotentialCalculator) calculatePotential(time float64) float64 {
-//	var potential float64
-//
-//	// 根据扫描方向计算电位
-//	if pc.ScanDirection == "+" {
-//		potential = pc.InitialPotential + (pc.ScanSpeed * time)
-//		if potential > pc.HighPotential {
-//			return pc.HighPotential // 超过高电位限制
-//		}
-//	} else if pc.ScanDirection == "-" {
-//		potential = pc.InitialPotential - (pc.ScanSpeed * time)
-//		if potential < pc.LowPotential {
-//			return pc.LowPotential // 低于低电位限制
-//		}
-//	}
-//
-//	return potential
-//}
-
 func (pc *PotentialCalculator) calculatePotential(time float64) float64 {
-	// 根据扫描方向计算电位
-	potential := pc.InitialPotential
+	var val float64
+	t := time * pc.ScanSpeed
+	w := pc.HighPotential - pc.LowPotential
+	//x - math.Floor(x/y)*y
+	total := t - math.Floor(t/w)*w
+	log.Println(t, "====", w, "====", total)
 	if pc.ScanDirection == "+" {
-		potential += pc.ScanSpeed * time
-	} else if pc.ScanDirection == "-" {
-		potential -= pc.ScanSpeed * time
-	}
+		p := pc.HighPotential - pc.InitialPotential
+		if total >= p {
+			total = total - math.Floor(total/p)*p
+		}
+		val = pc.InitialPotential + total
+		if val >= pc.HighPotential {
+			val = pc.HighPotential
+			pc.ScanDirection = "-"
+		}
+	} else {
+		q := pc.InitialPotential - pc.LowPotential
+		if total >= q {
+			total = q - (total - math.Floor(total/q)*q)
+		}
+		val = pc.InitialPotential - total
+		if val <= pc.LowPotential {
+			val = pc.LowPotential
+			pc.ScanDirection = "+"
+		}
 
-	// 限制电位在 [lowPotential, highPotential] 范围内
-	if potential > pc.HighPotential {
-		return pc.HighPotential
-	} else if potential < pc.LowPotential {
-		return pc.LowPotential
 	}
-
-	return potential
+	return val
 }
 
 // 用户输入解析函数
@@ -89,47 +83,64 @@ func getUserInput(prompt string) float64 {
 
 // Camm 主函数
 func Camm(fileName string) {
-	// 获取用户输入
-	fmt.Println()
-	initialPotential := getUserInput("请输入初始电位 (V): ")
-	fmt.Println()
-	highPotential := getUserInput("请输入高电位 (V): ")
-	fmt.Println()
-	lowPotential := getUserInput("请输入低电位 (V): ")
-	fmt.Println()
-	scanSpeed := getUserInput("请输入扫描速度 (V/s): ")
-	fmt.Println()
+	//// 获取用户输入
+	//fmt.Println()
+	//initialPotential := getUserInput("请输入初始电位 (V): ")
+	//fmt.Println()
+	//highPotential := getUserInput("请输入高电位 (V): ")
+	//fmt.Println()
+	//lowPotential := getUserInput("请输入低电位 (V): ")
+	//fmt.Println()
+	//scanSpeed := getUserInput("请输入扫描速度 (V/s): ")
+	//fmt.Println()
+	//
+	//// 获取并验证扫描方向
+	//fmt.Print("请输入扫描方向 (+/-): ")
+	//var scanDirection string
+	//_, err := fmt.Scanln(&scanDirection)
+	//if err != nil {
+	//	fmt.Println("输入扫描方向时发生错误: ", err)
+	//	return
+	//}
+	//
+	//// 验证扫描方向输入
+	//if scanDirection != "+" && scanDirection != "-" {
+	//	fmt.Println("无效的扫描方向，必须是 '+' 或 '-'")
+	//	return
+	//}
 
-	// 获取并验证扫描方向
-	fmt.Print("请输入扫描方向 (+/-): ")
-	var scanDirection string
-	_, err := fmt.Scanln(&scanDirection)
-	if err != nil {
-		fmt.Println("输入扫描方向时发生错误: ", err)
-		return
-	}
-
-	// 验证扫描方向输入
-	if scanDirection != "+" && scanDirection != "-" {
-		fmt.Println("无效的扫描方向，必须是 '+' 或 '-'")
-		return
-	}
-
+	//// 初始化电位转换器
+	//calculator := &PotentialCalculator{
+	//	InitialPotential: initialPotential,
+	//	HighPotential:    highPotential,
+	//	LowPotential:     lowPotential,
+	//	ScanDirection:    scanDirection,
+	//	ScanSpeed:        scanSpeed,
+	//}
+	initialPotential := 0.0
 	// 初始化电位转换器
 	calculator := &PotentialCalculator{
 		InitialPotential: initialPotential,
-		HighPotential:    highPotential,
-		LowPotential:     lowPotential,
-		ScanDirection:    scanDirection,
-		ScanSpeed:        scanSpeed,
+		HighPotential:    1.6,
+		LowPotential:     -2.8,
+		ScanDirection:    "-",
+		ScanSpeed:        0.05,
 	}
+
+	//calculator := &PotentialCalculator{
+	//	InitialPotential: initialPotential,
+	//	HighPotential:    5,
+	//	LowPotential:     0,
+	//	ScanDirection:    "-",
+	//	ScanSpeed:        1,
+	//}
 	for {
 		fmt.Println()
 		// 获取时间序列数据
 		fmt.Print("请输入时间数据（以空格分隔的秒数列表，例如: 0 1 2 3, 按q返回上一级菜单）: ")
 		var timeInput string
 		reader := bufio.NewReader(os.Stdin)
-		timeInput, err = reader.ReadString('\n')
+		timeInput, err := reader.ReadString('\n')
 		if err != nil {
 			fmt.Println("获取时间输入时发生错误: ", err)
 			return
@@ -155,7 +166,7 @@ func Camm(fileName string) {
 			// 计算电位
 			potential := calculator.calculatePotential(timeValue)
 			data = append(data, []interface{}{
-				calculator.InitialPotential,
+				initialPotential,
 				calculator.HighPotential,
 				calculator.LowPotential,
 				calculator.ScanSpeed,
@@ -163,7 +174,7 @@ func Camm(fileName string) {
 				timeValue,
 				potential,
 			})
-			fmt.Printf("时间: %.2f 秒 ===> 初始电位: %.2fV === 计算电位: %.2f V\n", timeValue, calculator.InitialPotential, potential)
+			fmt.Printf("时间: %.4f 秒 ===> 初始电位: %.4fV === 计算电位: %.4f V\n", timeValue, initialPotential, potential)
 		}
 		err = writeToExcel(fileName, data)
 		if err != nil {
