@@ -13,6 +13,7 @@ import (
 	"bufio"
 	"fmt"
 	"github.com/xuri/excelize/v2"
+	"log"
 	"math"
 	"os"
 	"strconv"
@@ -139,9 +140,10 @@ func Camm(fileName string) {
 	//	ScanSpeed:        1,
 	//}
 	for {
+		var timeStrings []string
 		fmt.Println()
 		// 获取时间序列数据
-		fmt.Print("请输入时间数据（以空格分隔的秒数列表，例如: 0 1 2 3, 按q返回上一级菜单）: ")
+		fmt.Print("请输入时间数据（以空格分隔的秒数列表，例如: 0 1 2 3, 按q返回上一级菜单,输入data从文件中读取）: ")
 		var timeInput string
 		reader := bufio.NewReader(os.Stdin)
 		timeInput, err := reader.ReadString('\n')
@@ -151,13 +153,21 @@ func Camm(fileName string) {
 		}
 		if strings.TrimSpace(timeInput) == "q" {
 			break
-		}
-
-		// 解析时间数据
-		timeStrings := strings.Fields(timeInput)
-		if len(timeStrings) == 0 {
-			fmt.Println("未提供有效的时间数据")
-			return
+		} else if strings.TrimSpace(timeInput) == "data" {
+			tString, err := ReadFirstColumnAsString("data.xlsx", "Sheet1")
+			if err != nil {
+				fmt.Println("文件数据错误,请检查!", err)
+				continue
+			}
+			timeStrings = tString
+			fmt.Println(timeStrings)
+		} else {
+			// 解析时间数据
+			timeStrings = strings.Fields(timeInput)
+			if len(timeStrings) == 0 {
+				fmt.Println("未提供有效的时间数据")
+				return
+			}
 		}
 		var data [][]interface{}
 		fmt.Println("======================================================")
@@ -240,4 +250,32 @@ func writeToExcel(filename string, data [][]interface{}) error {
 	}
 
 	return nil
+}
+
+func ReadFirstColumnAsString(filePath string, sheetName string) ([]string, error) {
+	f, err := excelize.OpenFile(filePath)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err := f.Close(); err != nil {
+			log.Println("Error closing the file:", err)
+		}
+	}()
+
+	var data []string
+
+	rows, err := f.GetRows(sheetName)
+	if err != nil {
+		return nil, err
+	}
+
+	// 遍历第一列（索引为0的列）
+	for _, row := range rows {
+		if len(row) > 0 {
+			data = append(data, row[0])
+		}
+	}
+
+	return data, nil
 }
