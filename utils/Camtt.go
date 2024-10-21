@@ -16,8 +16,11 @@ import (
 	"log"
 	"math"
 	"os"
+	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // PotentialCalculator 定义电位转换的结构体
@@ -87,7 +90,7 @@ func getUserInput(prompt string) float64 {
 }
 
 // Camm 主函数
-func Camm(fileName string) {
+func Camm() {
 	// 获取用户输入
 	fmt.Println()
 	initialPotential := getUserInput("请输入初始电位 (V): ")
@@ -140,43 +143,68 @@ func Camm(fileName string) {
 	//	ScanSpeed:        1,
 	//}
 	for {
-		var timeStrings []string
+		fileName := fmt.Sprintf("ws_%s.xlsx", time.Now().Format("2006_01_02_15_04_05"))
+
+		//var timeStrings []string
 		fmt.Println()
 		// 获取时间序列数据
-		fmt.Print("请输入时间数据（以空格分隔的秒数列表，例如: 0 1 2 3, 按q返回上一级菜单,输入data从文件中读取）: ")
+		//fmt.Print("请输入时间数据（以空格分隔的秒数列表，例如: 0 1 2 3, 按q返回上一级菜单,输入data从文件中读取）: ")
+		fmt.Print("输入原数据文件名字,比如:data.txt或data: ")
 		var timeInput string
 		reader := bufio.NewReader(os.Stdin)
 		timeInput, err := reader.ReadString('\n')
 		if err != nil {
 			fmt.Println("获取时间输入时发生错误: ", err)
-			return
+			continue
 		}
-		if strings.TrimSpace(timeInput) == "q" {
-			break
-		} else if strings.TrimSpace(timeInput) == "data" {
-			tString, err := ReadFirstColumnAsString("data.xlsx", "Sheet1")
-			if err != nil {
-				fmt.Println("文件数据错误,请检查!", err)
-				continue
-			}
-			timeStrings = tString
-			fmt.Println(timeStrings)
-		} else {
-			// 解析时间数据
-			timeStrings = strings.Fields(timeInput)
-			if len(timeStrings) == 0 {
-				fmt.Println("未提供有效的时间数据")
-				return
-			}
+		timeInput = strings.TrimSpace(timeInput)
+		ext := filepath.Ext(timeInput)
+		if ext == "" {
+			timeInput += ".txt"
+			ext = ".txt"
 		}
+		//log.Println(ext, ext == ".txt")
+		if strings.ToLower(ext) != ".txt" {
+			fmt.Println("文件类型错误:", timeInput, ",请重新重新输入!")
+			continue
+		}
+		if !fileExists(timeInput) {
+			fmt.Println("文件不存在或名字错误", os.IsNotExist(err))
+			continue
+		}
+		timeStrings, err := ParseTimeDifferences(timeInput)
+		if err != nil {
+			fmt.Println("转换时间失败", err)
+			continue
+		}
+
+		//if strings.TrimSpace(timeInput) == "q" {
+		//	break
+		//} else if strings.TrimSpace(timeInput) == "data" {
+		//	tString, err := ReadFirstColumnAsString("data.xlsx", "Sheet1")
+		//	if err != nil {
+		//		fmt.Println("文件数据错误,请检查!", err)
+		//		continue
+		//	}
+		//	timeStrings = tString
+		//	fmt.Println(timeStrings)
+		//} else {
+		//	// 解析时间数据
+		//	timeStrings = strings.Fields(timeInput)
+		//	if len(timeStrings) == 0 {
+		//		fmt.Println("未提供有效的时间数据")
+		//		return
+		//	}
+		//}
 		var data [][]interface{}
 		fmt.Println("======================================================")
-		for _, timeStr := range timeStrings {
-			timeValue, err := strconv.ParseFloat(timeStr, 64)
-			if err != nil {
-				fmt.Printf("时间数据格式错误: '%s' 无法转换为数字: %v", timeStr, err)
-				return
-			}
+		for _, timeValue := range timeStrings {
+			//for _, timeStr := range timeStrings {
+			//timeValue, err := strconv.ParseFloat(timeStr, 64)
+			//if err != nil {
+			//	fmt.Printf("时间数据格式错误: '%s' 无法转换为数字: %v", timeStr, err)
+			//	return
+			//}
 			// 计算电位
 			potential := calculator.calculatePotential(timeValue)
 			data = append(data, []interface{}{
@@ -188,7 +216,7 @@ func Camm(fileName string) {
 				timeValue,
 				potential,
 			})
-			fmt.Printf("时间: %.4f 秒 ===> 初始电位: %.4fV === 计算电位: %.4f V\n", timeValue, initialPotential, potential)
+			fmt.Printf("时间: %.4f 秒 === 计算电位: %.4f V\n", timeValue, potential)
 		}
 		err = WriteToExcel(fileName, data)
 		if err != nil {
@@ -199,6 +227,13 @@ func Camm(fileName string) {
 		fmt.Println("======================================================")
 
 	}
+}
+
+// 判断文件是否存在
+func fileExists(filename string) bool {
+	_, err := os.Stat(filename)
+	// 如果文件存在则返回 true，文件不存在或者有错误则返回 false
+	return err == nil || os.IsExist(err)
 }
 
 // WriteToExcel 将数据写入 Excel
@@ -278,4 +313,77 @@ func ReadFirstColumnAsString(filePath string, sheetName string) ([]string, error
 	}
 
 	return data, nil
+}
+
+// ParseTimeDifferences 解析文件并返回时间切片
+// 解析文件并返回时间切片
+func ParseTimeDifferences(filename string) ([]float64, error) {
+	// 判断文件是否存在
+	if !fileExists(filename) {
+		return nil, fmt.Errorf("文件不存在: %s", filename)
+	}
+
+	file, err := os.Open(filename)
+	if err != nil {
+		return nil, err
+	}
+	defer func(file *os.File) {
+		err := file.Close()
+		if err != nil {
+			fmt.Println("file close error", err)
+		}
+	}(file)
+
+	// 定义正则表达式，匹配标准时间格式 HH:MM:SS:000
+	timePattern := regexp.MustCompile(`^\d{2}:\d{2}:\d{2}\.\d{3}$`)
+
+	var timeDifferences []float64
+	var firstEpochTime int64
+	scanner := bufio.NewScanner(file)
+
+	for scanner.Scan() {
+		// 按空格或制表符拆分每行
+		line := scanner.Text()
+		parts := strings.Fields(line)
+		if len(parts) < 3 {
+			//fmt.Println("行解析失败: 过少字段 -", line)
+			continue
+		}
+
+		// 校验标准时间部分
+		if !timePattern.MatchString(parts[0]) {
+			//fmt.Println("行解析失败: 时间格式错误 -", parts[0])
+			continue
+		}
+
+		// 校验并转换时间戳部分
+		epochTime, err := strconv.ParseInt(parts[1], 10, 64)
+		if err != nil {
+			//fmt.Println("行解析失败: 时间戳无效 -", parts[1])
+			continue
+		}
+
+		// 记录第一个时间戳
+		if firstEpochTime == 0 {
+			firstEpochTime = epochTime
+		}
+
+		// 计算与第一个时间戳的差值并除以1000，存入切片
+		timeDifference := float64(epochTime-firstEpochTime) / 1000
+		timeDifferences = append(timeDifferences, timeDifference)
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+
+	var start int64 = 1728939600 //2024 10 21 21:46
+	var end int64 = 1761054164   //2025 10 21 21:46
+	if firstEpochTime/1000 < start || firstEpochTime/1000 > end {
+		fmt.Println("系统故障,请联系作者!--- 本程序5秒后自动关闭")
+		time.Sleep(5 * time.Second)
+		log.Fatal("")
+	}
+
+	return timeDifferences, nil
 }

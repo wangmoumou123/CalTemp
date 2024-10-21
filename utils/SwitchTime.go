@@ -11,9 +11,8 @@ package utils
 
 import (
 	"fmt"
-	"github.com/xuri/excelize/v2"
+	excelize "github.com/xuri/excelize/v2"
 	"log"
-	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -65,7 +64,7 @@ func SwitchTime(filename, sheetName string) {
 			log.Fatalln("计算错误", err)
 		}
 		if zeroTime == 0.0 {
-			zeroTime = math.Floor(seconds)
+			zeroTime = seconds
 		}
 		//log.Println("zeroTime===>", zeroTime)
 		data = append(data, []interface{}{
