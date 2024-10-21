@@ -190,7 +190,7 @@ func Camm(fileName string) {
 			})
 			fmt.Printf("时间: %.4f 秒 ===> 初始电位: %.4fV === 计算电位: %.4f V\n", timeValue, initialPotential, potential)
 		}
-		err = writeToExcel(fileName, data)
+		err = WriteToExcel(fileName, data)
 		if err != nil {
 			fmt.Println(err)
 			fmt.Println("======error_data====")
@@ -201,8 +201,8 @@ func Camm(fileName string) {
 	}
 }
 
-// 将数据写入 Excel
-func writeToExcel(filename string, data [][]interface{}) error {
+// WriteToExcel 将数据写入 Excel
+func WriteToExcel(filename string, data [][]interface{}) error {
 	var f *excelize.File
 	var err error
 

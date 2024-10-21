@@ -9,20 +9,17 @@
 **/
 package main
 
-import (
-	"CalTemp/utils"
-	"fmt"
-	"time"
-)
+import "CalTemp/utils"
 
 func main() {
-	fileName := fmt.Sprintf("ws_%s.xlsx", time.Now().Format("2006_01_02"))
-
-	fmt.Println("=======================")
-	fmt.Println("cal_temp---author:ws")
-	fmt.Println("=======================")
-
-	for {
-		utils.Camm(fileName)
-	}
+	//fileName := fmt.Sprintf("ws_%s.xlsx", time.Now().Format("2006_01_02"))
+	//
+	//fmt.Println("=======================")
+	//fmt.Println("cal_temp---author:ws")
+	//fmt.Println("=======================")
+	//
+	//for {
+	//	utils.Camm(fileName)
+	//}
+	utils.SwitchTime("time.xlsx", "Sheet1")
 }
